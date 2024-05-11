@@ -1,4 +1,11 @@
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+import { Property } from '../../properties/entities/property.entity';
 
 @Entity({
   name: 'users',
@@ -7,7 +14,7 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'varchar', length: 50, nullable: false }) // maximo 50 chars y no puede ser nulo
+  @Column({ type: 'varchar', length: 50, unique: true, nullable: false }) // maximo 50 chars y no puede ser nulo
   username: string;
 
   @Column({ type: 'text', nullable: false })
@@ -19,7 +26,7 @@ export class User {
   @Column({ name: 'last_name', type: 'varchar', length: 50, nullable: false }) // maximo 50 chars y no puede ser nulo
   lastName: string;
 
-  @Column({ type: 'integer', nullable: false })
+  @Column({ type: 'integer', unique: true, nullable: false })
   document: number;
 
   @Column({
@@ -29,7 +36,7 @@ export class User {
   })
   image: string;
 
-  @Column({ type: 'integer', nullable: false })
+  @Column({ type: 'integer', nullable: true })
   phone: number;
 
   @Column({ type: 'integer', nullable: false })
@@ -37,6 +44,9 @@ export class User {
 
   @Column({ type: 'varchar', length: 50, nullable: false, unique: true })
   email: string;
+
+  @Column({ name: 'google_account', type: 'boolean', default: false })
+  googleAccount: boolean;
 
   @Column({ type: 'bool', default: false })
   validate: boolean;
@@ -59,6 +69,10 @@ export class User {
   @Column({ name: 'last_login', nullable: false })
   lastLogin: Date;
 
-  @Column({ type: 'uuid' })
+  @Column({ name: 'admin_modify', type: 'uuid', nullable: true })
   adminModify: string;
+
+  @OneToMany(() => Property, (prop) => prop.user, { eager: true })
+  @JoinColumn()
+  properties: Property[];
 }
