@@ -38,13 +38,13 @@ Para obtener un token JWT, inicia sesión utilizando el endpoint /auth/signin.
   SwaggerModule.setup('api', app, document);
 
   app.use(loggerGlobal); // midd-loginLog global
-  // app.use(auth(configAuth0)); // auth0
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // validar DTO
       forbidNonWhitelisted: true,
     }),
   );
-  await app.listen(3000);
+
+  await app.listen(process.env.PORT);
 }
 bootstrap();

@@ -45,7 +45,7 @@ export class CreateUserDto {
   @IsString()
   @MinLength(2)
   @MaxLength(30)
-  @Matches(/^[a-zA-Z0-9]+$/)
+  @Matches(/^[a-zA-Z0-9 ]+$/)
   readonly name: string;
 
   /**
@@ -57,7 +57,7 @@ export class CreateUserDto {
   @IsString()
   @MinLength(2)
   @MaxLength(30)
-  @Matches(/^[a-zA-Z0-9]+$/)
+  @Matches(/^[a-zA-Z0-9 ]+$/)
   readonly lastName: string;
 
   /**
@@ -72,7 +72,7 @@ export class CreateUserDto {
   readonly document: number;
 
   /**
-   * Número de teléfono fijo del usuario.
+   * Número de teléfono fijo del usuario, es opcional.
    * @description Debe ser un número no vacío.
    * @example 1234567890
    */

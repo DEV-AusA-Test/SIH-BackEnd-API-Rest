@@ -6,6 +6,7 @@ import {
   Req,
   UseGuards,
   Res,
+  HttpCode,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/create-auth.dto';
@@ -20,10 +21,10 @@ export class AuthController {
 
   @Post('signup')
   signUpUser(@Body() createUserDto: CreateUserDto) {
-    console.log(createUserDto);
     return this.authService.signUpUser(createUserDto);
   }
 
+  @HttpCode(200)
   @Post('signin')
   signInUser(@Body() userLogin: LoginUserDto) {
     return this.authService.singInUser(userLogin);
@@ -40,10 +41,11 @@ export class AuthController {
   @Get('google/redirect')
   @UseGuards(GoogleAuthGuard)
   async loginOk(@Req() request: Request, @Res() res: Response) {
-    console.log(request.user);
-
     const encodedData = encodeURIComponent(JSON.stringify(request.user));
-    res.redirect(`http://localhost:3000/google?data=${encodedData}`);
+    res.redirect(
+      `${process.env.FRONT_HOST_NAME}/auth/google/redirect?state=${encodedData}`,
+    );
+    return 'Redirigiendo';
   }
 
   @Get('status')

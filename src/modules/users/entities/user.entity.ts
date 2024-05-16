@@ -36,10 +36,10 @@ export class User {
   })
   image: string;
 
-  @Column({ type: 'integer', nullable: true })
+  @Column({ type: 'bigint', nullable: true })
   phone: number;
 
-  @Column({ type: 'integer', nullable: false })
+  @Column({ type: 'bigint', nullable: false })
   cellphone: number;
 
   @Column({ type: 'varchar', length: 50, nullable: false, unique: true })
@@ -54,7 +54,7 @@ export class User {
   @Column({ type: 'bool', default: true })
   state: boolean;
 
-  @Column({ type: 'varchar', default: 'user' })
+  @Column({ type: 'varchar', default: 'owner' })
   rol: string;
 
   @Column({
