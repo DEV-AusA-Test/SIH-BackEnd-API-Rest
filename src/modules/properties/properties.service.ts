@@ -22,7 +22,10 @@ export class PropertiesService {
     private readonly filesCloudinaryService: FilesCloudinaryService,
   ) {}
 
-  async createProperty(createPropertyDto: CreatePropertyDto) {
+  async createProperty(
+    createPropertyDto: CreatePropertyDto,
+    // file: Express.Multer.File,
+  ) {
     const propFinded = await this.propertyRepository.findOne({
       where: { number: createPropertyDto.number },
     });
@@ -33,7 +36,7 @@ export class PropertiesService {
 
     // code unique?
     const codeGen = customAlphabet('01234567890ABCDEFGHIJ', 6);
-    const code = codeGen();
+    const code = createPropertyDto.code ? createPropertyDto.code : codeGen();
 
     const propCode = await this.propertyRepository.findOneBy({ code });
     if (propCode)
@@ -41,13 +44,34 @@ export class PropertiesService {
         'Ya existe una propiedad con ese codigo de identificacion',
       );
 
-    const newProp = await this.propertyRepository.create({
-      ...createPropertyDto,
-      code,
-    });
-    const newPropSaved = await this.propertyRepository.save(newProp);
+    const queryRunner = await this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    return newPropSaved;
+    try {
+      // const createUrlImage = await this.filesCloudinaryService.createFile(file);
+      const preloadData = await queryRunner.manager.create(Property, {
+        ...createPropertyDto,
+        // image: createUrlImage.secure_url,
+      });
+      const propCreated = await queryRunner.manager.save(preloadData);
+      await queryRunner.commitTransaction();
+
+      return propCreated;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+
+    // const newProp = await this.propertyRepository.create({
+    //   ...createPropertyDto,
+    //   code,
+    // });
+    // const newPropSaved = await this.propertyRepository.save(newProp);
+
+    // return newPropSaved;
   }
 
   async findAllProperties() {
