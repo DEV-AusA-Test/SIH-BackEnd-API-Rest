@@ -75,13 +75,18 @@ export class AuthorizationsService {
     return await this.authorizationRepository.find();
   }
 
-  async findOneAuthorization(number: number) {
+  async findAllAuthorizationsByUser(id: string) {
+    await this.userService.findUserById(id);
+    return await this.authorizationRepository.find({ where: { user: id } });
+  }
+
+  async findOneAuthorization(code: string) {
     const authorization = await this.authorizationRepository.findOneBy({
-      number,
+      accessCode: code,
     });
     if (!authorization)
       throw new NotFoundException(
-        'No se encuentra una autorizacion con es numero ingresado.',
+        'No se encuentra una autorizacion con el código ingresado.',
       );
     return authorization;
   }
@@ -93,12 +98,14 @@ export class AuthorizationsService {
   ) {
     const security = await this.userService.findUserById(id);
     const authorization = await this.findOneAuthorization(
-      updateAuthorizationDto.number,
+      updateAuthorizationDto.code,
     );
     // validation time
     const expirationTimeUtc = new Date(authorization.expirationTime);
     if (expirationTimeUtc < new Date()) {
-      return `El código de autorization ha expirado, por favor genere otro.`;
+      throw new BadRequestException(
+        'El código de autorization ha expirado, por favor genere otro',
+      );
     }
 
     const authorizationValidate = await this.authorizationRepository.preload({
@@ -109,12 +116,12 @@ export class AuthorizationsService {
 
     await this.authorizationRepository.save(authorizationValidate);
 
-    return { message: `Autorización validada con exito` };
+    return { message: `Autorización validada con éxito` };
   }
   // only rol admin?
-  async deleteAuthorization(id: string, number: number) {
+  async deleteAuthorization(id: string, code: string) {
     await this.userService.findUserById(id);
-    const authorization = await this.findOneAuthorization(number);
+    const authorization = await this.findOneAuthorization(code);
     await this.authorizationRepository.delete(authorization.id);
     return {
       message: `Autorización numero ${authorization.number} eliminada con éxito.`,

@@ -36,20 +36,29 @@ export class AuthorizationsController {
       createAuthorizationDto,
     );
   }
+
   @ApiBearerAuth()
   @Get()
-  @Roles(Role.Admin, Role.SuperAdmin)
+  @Roles(Role.Admin, Role.Security, Role.SuperAdmin)
   @UseGuards(AuthGuard, RolesGuard)
   findAll() {
     return this.authorizationsService.findAllAuthorizations();
   }
 
   @ApiBearerAuth()
-  @Get(':number')
-  @Roles(Role.Admin, Role.SuperAdmin)
+  @Get('user/:id')
+  @Roles(Role.Admin, Role.Owner, Role.SuperAdmin)
   @UseGuards(AuthGuard, RolesGuard)
-  findOneAuthorization(@Param('number') id: string) {
-    return this.authorizationsService.findOneAuthorization(Number(id));
+  findAllByUser(@Param('id', ParseUUIDPipe) id: string) {
+    return this.authorizationsService.findAllAuthorizationsByUser(id);
+  }
+
+  @ApiBearerAuth()
+  @Get(':code')
+  @Roles(Role.Admin, Role.SuperAdmin, Role.Security)
+  @UseGuards(AuthGuard, RolesGuard)
+  findOneAuthorization(@Param('code') code: string) {
+    return this.authorizationsService.findOneAuthorization(code);
   }
 
   @ApiBearerAuth()
@@ -70,7 +79,7 @@ export class AuthorizationsController {
   @Delete(':id')
   @Roles(Role.Admin, Role.SuperAdmin)
   @UseGuards(AuthGuard, RolesGuard)
-  deleteAuthorization(@Param('id', ParseUUIDPipe) id: string, number: number) {
-    return this.authorizationsService.deleteAuthorization(id, number);
+  deleteAuthorization(@Param('id', ParseUUIDPipe) id: string, code: string) {
+    return this.authorizationsService.deleteAuthorization(id, code);
   }
 }
