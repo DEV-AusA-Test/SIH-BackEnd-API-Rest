@@ -22,23 +22,23 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
   @ApiResponse({
     status: 201,
+    description: 'Created',
     schema: {
       example: {
-        username: 'juanperez14',
-        password: 'Password123!',
-        name: 'Juan Pérez',
-        lastName: 'Juan Pérez',
-        document: 12345678,
-        phone: 1234567890,
-        cellphone: 1234567890,
-        email: 'usuario@example.com',
-        code: 'codigo de la vivienda proporcionado por el admin ',
+        message: 'Usuario creado correctamente',
       },
     },
   })
   @ApiResponse({
     status: 400,
-    description: 'Ya existe un usuario registrado con ese email.',
+    description: 'Error: Bad Request',
+    schema: {
+      example: {
+        message: 'Ya existe un usuario registrado con ese email.',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
   })
   @Post('signup')
   signUpUser(@Body() createUserDto: CreateUserDto) {
@@ -47,6 +47,7 @@ export class AuthController {
 
   @ApiResponse({
     status: 200,
+    description: 'OK',
     schema: {
       example: {
         token:
@@ -64,13 +65,40 @@ export class AuthController {
           email: 'usuario@example.com',
           rol: 'owner',
           lastLogin: '2024-05-18T01:33:25.027Z',
+          properties: [
+            {
+              id: 'a5a0b0c0-5b0b-4a0b-8a0b-1a0b8a0b8a0b',
+              number: 109,
+              image:
+                'https://images.pexels.com/photos/323780/pexels-photo-323780.jpeg?auto=compress&cs=tinysrgb&w=600',
+              address: 'Calle 9 10',
+              code: 'CDAH3E',
+            },
+          ],
         },
       },
     },
   })
   @ApiResponse({
-    status: 401,
-    description: 'Algun dato ingresado es incorrecto',
+    status: 400,
+    description: 'Error: Bad Request',
+    schema: {
+      example: {
+        message: 'Algun dato ingresado es incorrecto',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Error: Not Found',
+    schema: {
+      example: {
+        statusCode: 404,
+        message: 'Cuenta Inactiva. Verifique su correo',
+      },
+    },
   })
   @HttpCode(200)
   @Post('signin')
@@ -91,7 +119,7 @@ export class AuthController {
 
   @ApiResponse({
     status: 200,
-    description: 'Esta es la data que regresa en el login con Google',
+    description: 'OK -Esta es la data que regresa en el login con Google',
     schema: {
       example: {
         token:
@@ -116,7 +144,14 @@ export class AuthController {
   })
   @ApiResponse({
     status: 400,
-    description: 'No se pudo iniciar sesion con Google',
+    description: 'Error: Bad Request',
+    schema: {
+      example: {
+        message: 'No se pudo iniciar sesion con Google',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
   })
   @Get('google/redirect')
   @UseGuards(GoogleAuthGuard)

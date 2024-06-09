@@ -15,6 +15,8 @@ import { CreatePayDto } from './dto/create-pay.dto';
 import { CreateExpenseDto } from './dto/create-expense.dto';
 import { UpdateExpenceDto } from './dto/update-expense.dto';
 import { PdfInvoiceHelper } from 'src/helpers/pdf-invoice.helper';
+import { EmailService } from '../email/email.service';
+import { emailUserPayment } from '../../utils/email-user-payment';
 
 @Injectable()
 export class ExpensesService {
@@ -25,6 +27,7 @@ export class ExpensesService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
+    private readonly emailService: EmailService,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -50,9 +53,9 @@ export class ExpensesService {
           },
         ],
         back_urls: {
-          success: 'https://secureingresshome.vercel.app/acciones/expensas',
-          failure: 'https://secureingresshome.vercel.app/acciones/expensas',
-          pending: 'https://secureingresshome.vercel.app/acciones/expensas',
+          success: `${process.env.FRONT_HOST_NAME}/acciones/expensas`,
+          failure: `${process.env.FRONT_HOST_NAME}/acciones/expensas`,
+          pending: `${process.env.FRONT_HOST_NAME}/acciones/expensas`,
         },
       },
     });
@@ -81,7 +84,17 @@ export class ExpensesService {
       expenceValidated.datePaid = new Date();
       expenceValidated.numberOperation = payment.id.toString();
 
-      await this.expenceRepository.save(expenceValidated);
+      const paidExpense = await this.expenceRepository.save(expenceValidated);
+      const user = await this.userRepository.findOneBy({
+        id: paidExpense.userProperty,
+      });
+
+      await this.emailService.sendNewEmail({
+        to: user.email,
+        subject: 'Confirmacion de tu pago - Secure Ingress Home',
+        text: emailUserPayment(`${user.name} ${user.lastName}`),
+      });
+
       return {
         message: 'La expensa ha sido pagada',
       };
@@ -130,12 +143,12 @@ export class ExpensesService {
       relations: ['expences'],
     });
 
-    if (!property) throw new NotFoundException('No se encontro Propiedades');
+    if (!property) throw new NotFoundException('No se encontro Propiedad');
     return property;
   }
 
   async createAllExpenses(createExpenseDto: CreateExpenseDto) {
-    const dayLimit = 0;
+    const dayLimit = 30;
     const userActive = await this.userRepository.find({
       where: { state: true, validate: true, rol: 'owner' },
     });
@@ -166,24 +179,25 @@ export class ExpensesService {
           .orderBy('expense.dateGenerated', 'DESC')
           .getOne();
         // Controla los dias del dia limitet
-        const dateCurrent = moment('2024-06-01');
+        const dateCurrent = moment();
 
         const dateGeneratedTicket = moment(lastExpenseTicket?.dateGenerated);
-        const dateGeneratedLimit = moment(lastExpenseLimit?.dateGenerated);
-        const differenceDays = Math.abs(
-          dateGeneratedLimit.diff(dateCurrent, 'days'),
-        );
-
-        if (differenceDays < (Number(lastExpenseLimit?.dayLimit) || dayLimit))
-          throw new NotAcceptableException(
-            `No se puede generar expensas, el limite de dias es de ${Number(lastExpenseLimit?.dayLimit) || dayLimit}, falta ${(Number(lastExpenseLimit?.dayLimit) || dayLimit) - differenceDays} dias`,
+        if (lastExpenseLimit?.dateGenerated) {
+          const dateGeneratedLimit = moment(lastExpenseLimit?.dateGenerated);
+          const differenceDays = Math.abs(
+            dateGeneratedLimit.diff(dateCurrent, 'days'),
           );
+          if (differenceDays < (Number(lastExpenseLimit?.dayLimit) || dayLimit))
+            throw new NotAcceptableException(
+              `No se puede generar expensas, el limite de dias es de ${Number(lastExpenseLimit?.dayLimit) || dayLimit}, falta ${(Number(lastExpenseLimit?.dayLimit) || dayLimit) - differenceDays} dias`,
+            );
+        }
         // Crear Expensa para cada propiedad
         const expence = this.expenceRepository.create({
           amount: createExpenseDto.amount,
           userProperty: user.id,
           property: propertie,
-          dateGenerated: new Date('2024-06-01'),
+          dateGenerated: new Date(),
           ticket:
             dateCurrent.year() > dateGeneratedTicket?.year()
               ? 1

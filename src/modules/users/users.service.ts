@@ -12,13 +12,14 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CreateUserDto } from '../auth/dto/create-auth.dto';
 import * as bcrypt from 'bcrypt';
 import { EmailService } from '../email/email.service';
-import { emailBody } from '../../utils/email-format';
+import { emailNewRegister } from '../../utils/email-new-register';
 import { config as dotenvConfig } from 'dotenv';
 import { JwtService } from '@nestjs/jwt';
 import { Property } from '../properties/entities/property.entity';
 import { FilesCloudinaryService } from '../files-cloudinary/files-cloudinary.service';
 import { Role } from '../../helpers/roles.enum';
 import { UpdateUserGoogleDto } from './dto/update-user-google.dto';
+import { emailUserDisable } from '../../utils/email-user-disable';
 
 dotenvConfig({ path: '.env' });
 
@@ -33,13 +34,8 @@ export class UsersService {
     private readonly filesCloudinaryService: FilesCloudinaryService,
   ) {}
 
-  async getUsersProps(page: number, limit: number) {
-    const start = (page - 1) * limit;
-    const end = start + limit;
-
+  async getUsersProps() {
     const users = await this.userService.find({
-      skip: start,
-      take: end,
       where: { rol: Not(In([Role.SuperAdmin, Role.Admin, Role.Security])) },
       select: [
         'id',
@@ -208,6 +204,14 @@ export class UsersService {
     if (!userExists) {
       throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
     }
+
+    const dniExists = await this.userService.findOneBy({
+      document: updateUserDto.document,
+    });
+    if (updateUserDto?.document) {
+      if (dniExists && userExists.document !== updateUserDto.document)
+        throw new NotFoundException('El DNI ya existe');
+    }
     if (userExists.rol === 'superadmin')
       throw new UnauthorizedException('No se puede modificar ese usuario');
 
@@ -244,11 +248,11 @@ export class UsersService {
       const userModified = await queryRunner.manager.save(user);
       await queryRunner.manager.save(userModified);
       await queryRunner.commitTransaction();
-      const registerOkMessage = {
+      const userUpdatedOkMessage = {
         message: `Usuario actualizado correctamente`,
       };
 
-      return registerOkMessage;
+      return userUpdatedOkMessage;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;
@@ -265,8 +269,27 @@ export class UsersService {
     if (userExists.rol === 'superadmin')
       throw new UnauthorizedException('No se puede dar de baja ese usuario');
     userExists.state = false;
-    await this.userService.save(userExists);
+    const userDisabled = await this.userService.save(userExists);
+
+    await this.emailService.sendNewEmail({
+      to: userDisabled.email,
+      subject: 'Alerta de cuenta - Secure Ingress Home',
+      text: emailUserDisable(`${userDisabled.name} ${userDisabled.lastName}`),
+    });
     return { message: 'El usuario fue dado de baja' };
+  }
+
+  async subscribeUser(id: string) {
+    const userExists = await this.userService.findOneBy({ id: id });
+    if (!userExists) {
+      throw new HttpException('Usuario no encontrado', HttpStatus.NOT_FOUND);
+    }
+    if (userExists.rol === 'superadmin')
+      throw new UnauthorizedException('No se puede dar de Alta ese usuario');
+    userExists.state = true;
+    await this.userService.save(userExists);
+
+    return { message: 'El usuario fue dado de Alta' };
   }
   async searchEmail(email: string) {
     return await this.userService.findOne({ where: { email: email } });
@@ -304,26 +327,38 @@ export class UsersService {
     await queryRunner.startTransaction();
 
     try {
-      const newUser = await queryRunner.manager.create(User, userData);
-      const newUserSaved = await queryRunner.manager.save(newUser);
+      let newUserSaved: User;
+      if (createUserDto.code === 'SIHSECURITY') {
+        const newUser = await queryRunner.manager.create(User, {
+          ...userData,
+          rol: 'security',
+        });
+        newUserSaved = await queryRunner.manager.save(newUser);
+      } else {
+        const newUser = await queryRunner.manager.create(User, userData);
+        newUserSaved = await queryRunner.manager.save(newUser);
 
-      const propFinded = await queryRunner.manager.findOneBy(Property, {
-        code: userData.code,
-      });
-      if (!propFinded)
-        throw new NotFoundException(
-          'No existe una propiedad con ese Numero de identificacion.',
-        );
-      const propReg = await queryRunner.manager.preload(Property, {
-        id: propFinded.id,
-        user: newUserSaved,
-      });
-      await queryRunner.manager.save(propReg);
+        const propFinded = await queryRunner.manager.findOneBy(Property, {
+          code: userData.code,
+        });
+        if (!propFinded)
+          throw new NotFoundException(
+            'No existe una propiedad con ese Numero de identificacion.',
+          );
+        const propReg = await queryRunner.manager.preload(Property, {
+          id: propFinded.id,
+          user: newUserSaved,
+        });
+        await queryRunner.manager.save(propReg);
+      }
 
       await this.emailService.sendNewEmail({
         to: userData.email,
         subject: 'Bienvenido a SIH - Secure Ingress Home',
-        text: emailBody(`${newUser.name} ${newUser.lastName}`, urlValidate),
+        text: emailNewRegister(
+          `${newUserSaved.name} ${newUserSaved.lastName}`,
+          urlValidate,
+        ),
       });
 
       await queryRunner.commitTransaction();

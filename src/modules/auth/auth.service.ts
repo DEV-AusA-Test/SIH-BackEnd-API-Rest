@@ -50,26 +50,31 @@ export class AuthService {
     });
     if (username)
       throw new BadRequestException(
-        `Ya existe un usuario registrado con ese username.`,
+        `Ya existe un usuario registrado con ese nombre de usuario.`,
       );
 
-    const propLinked = await this.propertyRepository.findOne({
-      where: {
-        code: createUserDto.code,
-      },
-      relations: ['user'],
-    });
-    if (!propLinked)
-      throw new NotFoundException(
-        'No existe una propiedad con ese codigo ingresado',
-      );
-    if (propLinked.user)
-      throw new ConflictException(
-        'El codigo de propiedad ya está vinculado a otro usuario',
-      );
+    if (createUserDto.code === 'SIHSECURITY') {
+      const registerOk = await this.userService.signUpUser(createUserDto);
+      return registerOk;
+    } else {
+      const propLinked = await this.propertyRepository.findOne({
+        where: {
+          code: createUserDto.code,
+        },
+        relations: ['user'],
+      });
+      if (!propLinked)
+        throw new NotFoundException(
+          'No existe una propiedad con ese codigo ingresado',
+        );
+      if (propLinked.user)
+        throw new ConflictException(
+          'El codigo de propiedad ya está vinculado a otro usuario',
+        );
 
-    const registerOk = await this.userService.signUpUser(createUserDto);
-    return registerOk;
+      const registerOk = await this.userService.signUpUser(createUserDto);
+      return registerOk;
+    }
   }
 
   async singInUser(userLogin: LoginUserDto) {
@@ -97,7 +102,6 @@ export class AuthService {
       userLogin.password,
       userValidated.password,
     );
-    console.log(passwordValidate);
     if (!passwordValidate)
       throw new BadRequestException('Algun dato ingresado es incorrecto');
 
@@ -114,7 +118,7 @@ export class AuthService {
       rol: userValidated.rol,
     };
     const token = this.jwtService.sign(payload);
-    return {
+    const userLoginData = {
       token: token,
       user: {
         id: userValidated.id,
@@ -128,8 +132,10 @@ export class AuthService {
         email: userValidated.email,
         rol: userValidated.rol,
         lastLogin: userValidated.lastLogin,
+        properties: userValidated.properties,
       },
     };
+    return userLoginData;
   }
 
   async validateUser(userData: GoogleUserInfoDto) {
