@@ -3,7 +3,7 @@ name: deploy aws test
 on:
   push:
     branches:
-      - "aws"
+      - "main"
 
 persmissions:
   id-token: write
